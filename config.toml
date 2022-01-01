@@ -4,8 +4,7 @@ port = 554 # Optional, default 554
 
 # The stream for this h264 camera would be made available at rtsp://<host>:<port>/front_deck
 [stream.front_deck]
-# Accepts generic URLs, port defaults to 1264
-# Trailing slash is required
+# Accepts string "<host>[:port]", port defaults to 1264
 # Currently only accepts IPv4 addresses for the host portion
-url = "192.168.1.254:1264/"
-#url = "192.168.1.254/" # works just as well
+addr = "192.168.1.254:1264"
+#addr = "192.168.1.254" # works just as well

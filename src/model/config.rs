@@ -25,5 +25,5 @@ pub struct ServerConfig {
 
 #[derive(Deserialize)]
 pub struct Stream {
-    pub url: String,
+    pub addr: String,
 }
