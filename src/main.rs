@@ -13,6 +13,8 @@ use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpSocket;
 use tokio::process::Command;
+use tokio::sync::mpsc;
+use tokio::sync::mpsc::Sender;
 use tokio::task::JoinHandle;
 
 use crate::model::config::Config;
@@ -21,6 +23,8 @@ mod model;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    let (terminator, mut terminator_rx) = mpsc::channel::<String>(1);
+
     let config = Arc::new(toml::from_slice::<Config>(
         &fs::read("./config.toml")
             .await
@@ -37,20 +41,31 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .expect("host is not an ip address");
         let port = port[1..].parse().unwrap_or(1264);
 
-        match start_stream(Arc::clone(&config), name.to_owned(), host, port).await {
+        match start_stream(Arc::clone(&config), terminator.clone(), name.to_owned(), host, port).await {
             Ok(join) => joins.push(join),
             Err(e) => eprintln!("Failed to connect to {}: {:?}", name, e)
         }
     }
 
-    println!("Hello, world!");
+    if let Some(crashed) = terminator_rx.recv().await {
+        eprintln!("Caught termination of socket {}, restarting server...", crashed);
+    } else {
+        eprintln!("All sockets terminated, restartig server...");
+    }
+
+    for join in joins {
+        join.abort();
+    }
 
     Ok(())
 }
 
-async fn start_stream(config: Arc<Config>, name: String, host: IpAddr, port: u16) -> Result<JoinHandle<()>, Box<dyn Error>> {
+async fn start_stream(config: Arc<Config>, terminator: Sender<String>, name: String, host: IpAddr, port: u16) -> Result<JoinHandle<()>, Box<dyn Error>> {
+    let addr = SocketAddr::new(host, port);
+
     let mut stream = TcpSocket::new_v4()?
-        .connect(SocketAddr::new(host, port)).await?;
+        .connect(addr)
+        .await?;
     println!("Connected to {}", name);
 
     Ok(tokio::spawn(async move {
@@ -78,11 +93,14 @@ async fn start_stream(config: Arc<Config>, name: String, host: IpAddr, port: u16
             match read {
                 Ok(read) => {
                     if read == 0 {
-                        break;
+                        continue 'stream;
                     }
                 }
                 Err(e) => {
-                    eprintln!("{:?}", e);
+                    eprintln!("Disconnected {}: {:?}", name, e);
+                    terminator.send(name)
+                        .await
+                        .expect("failed to send termination signal");
                     break 'stream;
                 }
             }
