@@ -47,10 +47,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    if let Some(crashed) = terminator_rx.recv().await {
+    if joins.is_empty() {
+        eprintln!("No sockets initialized, restarting server...");
+    } else if let Some(crashed) = terminator_rx.recv().await {
         eprintln!("Caught termination of socket {}, restarting server...", crashed);
     } else {
-        eprintln!("All sockets terminated, restartig server...");
+        eprintln!("All sockets terminated, restarting server...");
     }
 
     for join in joins {
