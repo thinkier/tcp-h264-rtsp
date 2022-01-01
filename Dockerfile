@@ -13,7 +13,7 @@ COPY . .
 RUN cargo build --release
 
 FROM debian:bullseye
-RUN apt-get install -y vlc
+RUN apt-get update; apt-get install -y vlc
 
 WORKDIR /app
 
