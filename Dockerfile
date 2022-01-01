@@ -17,6 +17,6 @@ RUN apt-get update; apt-get install -y vlc
 
 WORKDIR /app
 
-COPY --from=build /app/tcp-h264-rtsp .
+COPY --from=build /app/target/release/tcp-h264-rtsp .
 
 CMD /app/tcp-h264-rtsp
